@@ -7,11 +7,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# Allow the grading page/browser to call this API
+# 1. CORS Middleware MUST be added last so it wraps around everything else as the outermost layer
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[
+        "https://exam.sanand.workers.dev",
+        "http://localhost",
+        "http://localhost:3000",
+        "*" # Safe to use if credentials is false, or list explicit origins below:
+    ],
+    allow_credentials=False,  # Set to False to prevent wildcard/credentials conflict
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["Retry-After"],
@@ -57,8 +62,6 @@ def list_orders(
     limit: int = Query(default=10, ge=1),
     cursor: str | None = Query(default=None),
 ):
-    # Cursor is simply the ID of the next order to return.
-    # We hide that detail by encoding it as base64.
     import base64
 
     start = 1
@@ -100,8 +103,6 @@ async def rate_limit_middleware(request: Request, call_next):
         return await call_next(request)
 
     client_id = request.headers.get("X-Client-Id")
-
-    # If no client ID is sent, use a shared fallback bucket
     client_id = client_id or "anonymous"
 
     now = time.time()
