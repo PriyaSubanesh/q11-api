@@ -7,16 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# 1. CORS Middleware MUST be added last so it wraps around everything else as the outermost layer
+# CORS Middleware MUST be added so it wraps the app correctly
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://exam.sanand.workers.dev",
-        "http://localhost",
-        "http://localhost:3000",
-        "*" # Safe to use if credentials is false, or list explicit origins below:
-    ],
-    allow_credentials=False,  # Set to False to prevent wildcard/credentials conflict
+    allow_origins=["https://exam.sanand.workers.dev", "http://localhost", "http://localhost:3000"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["Retry-After"],
@@ -26,12 +21,8 @@ TOTAL_ORDERS = 43
 RATE_LIMIT = 17
 WINDOW_SECONDS = 10
 
-# Store created orders so the same Idempotency-Key returns the same order
 idempotency_store = {}
-
-# Store request timestamps separately for every client ID
 client_requests = defaultdict(list)
-
 
 @app.post("/orders")
 def create_order(request: Request, response: Response):
@@ -40,7 +31,6 @@ def create_order(request: Request, response: Response):
     if not idempotency_key:
         raise HTTPException(status_code=400, detail="Idempotency-Key header is required")
 
-    # If this key was used before, return the same order instead of creating another
     if idempotency_key in idempotency_store:
         return idempotency_store[idempotency_key]
 
@@ -52,7 +42,6 @@ def create_order(request: Request, response: Response):
     }
 
     idempotency_store[idempotency_key] = order
-
     return order
 
 
@@ -98,7 +87,6 @@ def list_orders(
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
-    # Skip rate limiting for CORS preflight requests
     if request.method == "OPTIONS":
         return await call_next(request)
 
@@ -107,7 +95,6 @@ async def rate_limit_middleware(request: Request, call_next):
 
     now = time.time()
 
-    # Remove timestamps older than the 10-second window
     client_requests[client_id] = [
         timestamp for timestamp in client_requests[client_id]
         if now - timestamp < WINDOW_SECONDS
@@ -124,9 +111,7 @@ async def rate_limit_middleware(request: Request, call_next):
             headers={"Retry-After": str(retry_after)},
         )
 
-    # Record this request
     client_requests[client_id].append(now)
-
     return await call_next(request)
 
 
