@@ -7,22 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# CORS Middleware MUST be added so it wraps the app correctly
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://exam.sanand.workers.dev", "http://localhost", "http://localhost:3000"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["Retry-After"],
-)
-
 TOTAL_ORDERS = 43
 RATE_LIMIT = 17
 WINDOW_SECONDS = 10
 
 idempotency_store = {}
 client_requests = defaultdict(list)
+
 
 @app.post("/orders")
 def create_order(request: Request, response: Response):
@@ -118,3 +109,14 @@ async def rate_limit_middleware(request: Request, call_next):
 @app.get("/")
 def root():
     return {"status": "Orders API is running"}
+
+
+# ADD CORS MIDDLEWARE AT THE VERY END so it wraps completely around custom middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://exam.sanand.workers.dev", "http://localhost", "http://localhost:3000", "*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["Retry-After"],
+)
